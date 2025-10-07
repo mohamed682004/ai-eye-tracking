@@ -1,134 +1,67 @@
-"""Base dataset loader with placeholder API download methods."""
-
+# src/data/base_loader.py
 import os
-from abc import ABC, abstractmethod
+import zipfile
 from pathlib import Path
-from typing import Optional, Dict, Any
-import logging
-
-logger = logging.getLogger(__name__)
-
+import requests
+from abc import ABC, abstractmethod
 
 class BaseDatasetLoader(ABC):
     """
-    Base class for dataset loaders with API download capabilities.
-    
-    This class provides a template for loading eye-tracking datasets
-    for dyslexia detection research.
+    Abstract base class for dataset downloaders and preprocessors.
+    Each dataset subclass should implement its own URLs and preprocessing steps.
     """
-    
-    def __init__(self, data_dir: str = "data/raw", api_key: Optional[str] = None):
-        """
-        Initialize the dataset loader.
-        
-        Args:
-            data_dir: Directory to store raw data
-            api_key: Optional API key for authentication
-        """
-        self.data_dir = Path(data_dir)
-        self.data_dir.mkdir(parents=True, exist_ok=True)
-        self.api_key = api_key
-        logger.info(f"Initialized dataset loader with data_dir: {self.data_dir}")
-    
-    def download_from_api(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """
-        Placeholder method to download data from an API endpoint.
-        
-        Args:
-            endpoint: API endpoint URL
-            params: Optional query parameters
-            
-        Returns:
-            Dictionary containing downloaded data
-            
-        Note:
-            This is a placeholder implementation. Override in subclasses
-            to implement actual API communication.
-        """
-        logger.info(f"Placeholder: Would download from endpoint: {endpoint}")
-        if params:
-            logger.info(f"With parameters: {params}")
-        
-        # Placeholder return
-        return {
-            "status": "placeholder",
-            "message": "This is a placeholder method. Implement actual API logic in subclass.",
-            "endpoint": endpoint,
-            "params": params
-        }
-    
-    def download_dataset(self, dataset_id: str, output_path: Optional[str] = None) -> str:
-        """
-        Placeholder method to download a complete dataset.
-        
-        Args:
-            dataset_id: Unique identifier for the dataset
-            output_path: Optional custom output path
-            
-        Returns:
-            Path to the downloaded dataset
-            
-        Note:
-            This is a placeholder implementation. Override in subclasses
-            to implement actual dataset download logic.
-        """
-        if output_path is None:
-            output_path = self.data_dir / f"{dataset_id}.csv"
-        else:
-            output_path = Path(output_path)
-        
-        logger.info(f"Placeholder: Would download dataset {dataset_id} to {output_path}")
-        
-        # Create a placeholder file
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.touch()
-        
-        return str(output_path)
-    
+
+    def __init__(self, output_folder: str = "data/raw", extract: bool = True):
+        self.output_folder = Path(output_folder)
+        self.extract = extract
+        self.output_folder.mkdir(parents=True, exist_ok=True)
+
+    # ------------------------------------------------------
+    # 🧩 Step 1: Download & Extract
+    # ------------------------------------------------------
+    def _download_file(self, url: str, dest_path: Path):
+        """Download a file from a URL to a local path."""
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        if dest_path.exists():
+            print(f"[INFO] {dest_path} already exists. Skipping download.")
+            return
+
+        print(f"[INFO] Downloading from {url} → {dest_path}")
+        with requests.get(url, stream=True) as r:
+            r.raise_for_status()
+            with open(dest_path, "wb") as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
+    def _extract_zip(self, zip_path: Path, extract_to: Path):
+        """Extract a ZIP file safely."""
+        try:
+            with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                zip_ref.extractall(extract_to)
+            print(f"[INFO] Extracted {zip_path.name} → {extract_to}")
+            os.remove(zip_path)
+        except zipfile.BadZipFile:
+            print(f"[WARN] {zip_path} is not a valid zip file.")
+
+    # ------------------------------------------------------
+    # 🧩 Step 2: Abstract Methods (to override)
+    # ------------------------------------------------------
     @abstractmethod
-    def load_data(self, file_path: str) -> Any:
-        """
-        Abstract method to load data from file.
-        
-        Args:
-            file_path: Path to the data file
-            
-        Returns:
-            Loaded data in appropriate format
-            
-        Note:
-            Must be implemented by subclasses.
-        """
+    def download(self):
+        """Download raw data files."""
         pass
-    
-    def validate_data(self, data: Any) -> bool:
-        """
-        Placeholder method to validate loaded data.
-        
-        Args:
-            data: Data to validate
-            
-        Returns:
-            True if data is valid, False otherwise
-            
-        Note:
-            Override in subclasses to implement specific validation logic.
-        """
-        logger.info("Placeholder: Validating data")
-        return data is not None
-    
-    def preprocess_data(self, data: Any) -> Any:
-        """
-        Placeholder method for data preprocessing.
-        
-        Args:
-            data: Raw data to preprocess
-            
-        Returns:
-            Preprocessed data
-            
-        Note:
-            Override in subclasses to implement specific preprocessing logic.
-        """
-        logger.info("Placeholder: Preprocessing data")
-        return data
+
+    @abstractmethod
+    def preprocess(self):
+        """Clean, standardize, and save to interim/processed folders."""
+        pass
+
+    # ------------------------------------------------------
+    # 🧩 Step 3: Utility
+    # ------------------------------------------------------
+    def run_full_pipeline(self):
+        """Run download → preprocess → ready-for-model pipeline."""
+        print(f"[PIPELINE] Starting pipeline for {self.__class__.__name__}")
+        self.download()
+        self.preprocess()
+        print(f"[PIPELINE] Completed pipeline for {self.__class__.__name__}")

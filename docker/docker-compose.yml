@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  ai-eye-tracking:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: ai-eye-tracking
+    volumes:
+      - ../data:/app/data
+      - ../models:/app/models
+      - ../logs:/app/logs
+      - ../configs:/app/configs
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python -m src
+    restart: unless-stopped

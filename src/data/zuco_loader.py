@@ -1,5 +1,5 @@
 from .base_loader import BaseDatasetLoader
-from .helpers import data_loading_helpers as helpers
+# from .helpers import data_loading_helpers as helpers # <-- BROKEN IMPORT COMMENTED OUT
 import h5py
 import numpy as np
 from pathlib import Path
@@ -22,18 +22,31 @@ class ZucoLoader(BaseDatasetLoader):
         mat_files = list(data_dir.glob("*.mat"))
 
         all_sentences = []
-        for file in mat_files:
-            print(f"[INFO] Processing {file.name}")
-            with h5py.File(file, "r") as f:
-                # Each .mat contains subjects/sentences
-                for sentence_key in f.keys():
-                    sentence_data = f[sentence_key]
-                    word_level_data = helpers.extract_word_level_data(
-                        data_container=f,
-                        word_objects=sentence_data,
-                        eeg_float_resolution=np.float16
-                    )
-                    all_sentences.append(word_level_data)
+        
+        # NOTE: The helper function 'extract_word_level_data' is not available
+        # until the 'helpers' module is restored or the logic is moved here.
+        # For now, we will skip the processing step to allow the module to import.
+        # You must uncomment and restore this logic after fixing your repo!
 
-        np.save(data_dir / "zuco_word_level.npy", all_sentences)
-        print(f"[INFO] Saved standardized word-level data → {data_dir/'zuco_word_level.npy'}")
+        print("[WARNING] Skipping detailed preprocess logic due to missing 'helpers' module.")
+
+        # for file in mat_files:
+        #     print(f"[INFO] Processing {file.name}")
+        #     with h5py.File(file, "r") as f:
+        #         # Each .mat contains subjects/sentences
+        #         for sentence_key in f.keys():
+        #             sentence_data = f[sentence_key]
+        #             word_level_data = helpers.extract_word_level_data(
+        #                 data_container=f,
+        #                 word_objects=sentence_data,
+        #                 eeg_float_resolution=np.float16
+        #             )
+        #             all_sentences.append(word_level_data)
+
+        # if all_sentences:
+        #     np.save(data_dir / "zuco_word_level.npy", all_sentences)
+        #     print(f"[INFO] Saved standardized word-level data → {data_dir/'zuco_word_level.npy'}")
+        # else:
+        #     print("[INFO] No data was processed or saved.")
+
+        return # Exit preprocess cleanly
